@@ -46,7 +46,7 @@ jobs:
           git clone "https://x-access-token:${COVERAGE_REPO_TOKEN}@github.com/${COVERAGE_REPO}.git" "$TEMP_DIR"
 
           # Create project directory
-          PROJECT_DIR="$TEMP_DIR/projects/$PROJECT_NAME"
+          PROJECT_DIR="$TEMP_DIR/public/projects/$PROJECT_NAME"
           mkdir -p "$PROJECT_DIR"
 
           # Copy lcov file
@@ -60,6 +60,10 @@ jobs:
             "sourceRepo": "${{ github.repository }}"
           }
           EOF
+
+          # Update index.json with all project directories
+          cd "$TEMP_DIR/public/projects"
+          ls -d */ 2>/dev/null | sed 's/\/$//' | jq -R -s -c 'split("\n") | map(select(length > 0))' > index.json
 
           # Commit and push
           cd "$TEMP_DIR"
