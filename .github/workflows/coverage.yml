@@ -57,7 +57,7 @@ jobs:
           {
             "project": "$PROJECT_NAME",
             "lastUpdated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "sourceRepo": "${{ github.repository }}",
+            "sourceRepo": "${{ github.repository }}"
           }
           EOF
 
