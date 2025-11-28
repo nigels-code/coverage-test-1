@@ -12,7 +12,7 @@ describe('isEven', () => {
     expect(isEven(4)).toBe(true)
   })
 
-  // it('returns false for odd numbers', () => {
-  //   expect(isEven(3)).toBe(false)
-  // })
+  it('returns false for odd numbers', () => {
+    expect(isEven(3)).toBe(false)
+  })
 })
