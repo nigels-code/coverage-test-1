@@ -26,34 +26,25 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
-      - name: Push coverage to code-coverage repo
+      - name: Configure AWS credentials
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          COVERAGE_REPO_TOKEN: ${{ secrets.COVERAGE_REPO_TOKEN }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Upload coverage to S3
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -e
 
           # Configuration
-          COVERAGE_REPO="nigels-code/code-coverage"
+          S3_BUCKET="coverage-demo-np1086"
           PROJECT_NAME="${{ github.event.repository.name }}"
 
-          # Setup git
-          git config --global user.name "Coverage Bot"
-          git config --global user.email "nigel.patching@gmail.com"
-
-          # Clone coverage aggregator repo
-          TEMP_DIR=$(mktemp -d)
-          git clone "https://x-access-token:${COVERAGE_REPO_TOKEN}@github.com/${COVERAGE_REPO}.git" "$TEMP_DIR"
-
-          # Create project directory
-          PROJECT_DIR="$TEMP_DIR/public/projects/$PROJECT_NAME"
-          mkdir -p "$PROJECT_DIR"
-
-          # Copy lcov file
-          cp coverage/lcov.info "$PROJECT_DIR/lcov.info"
-
           # Create metadata
-          cat > "$PROJECT_DIR/metadata.json" << EOF
+          cat > coverage/metadata.json << EOF
           {
             "project": "$PROJECT_NAME",
             "lastUpdated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -61,14 +52,12 @@ jobs:
           }
           EOF
 
-          # Update index.json with all project directories
-          cd "$TEMP_DIR/public/projects"
-          ls -d */ 2>/dev/null | sed 's/\/$//' | jq -R -s -c 'split("\n") | map(select(length > 0))' > index.json
+          # Upload coverage files to S3
+          aws s3 cp coverage/lcov.info "s3://${S3_BUCKET}/projects/${PROJECT_NAME}/lcov.info"
+          aws s3 cp coverage/metadata.json "s3://${S3_BUCKET}/projects/${PROJECT_NAME}/metadata.json"
 
-          # Commit and push
-          cd "$TEMP_DIR"
-          git add .
-          git commit -m "Update coverage for $PROJECT_NAME" || echo "No changes"
-          git push
+          # Update index.json with all projects
+          aws s3 ls "s3://${S3_BUCKET}/projects/" | awk '{print $2}' | sed 's/\/$//' | jq -R -s -c 'split("\n") | map(select(length > 0))' > index.json
+          aws s3 cp index.json "s3://${S3_BUCKET}/projects/index.json"
 
-          echo "✅ Coverage pushed to aggregator repo"
+          echo "✅ Coverage uploaded to S3 bucket ${S3_BUCKET}"
